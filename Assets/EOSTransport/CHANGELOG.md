@@ -1,3 +1,11 @@
+# [1.0.0-beta.2](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.0-beta.1...v1.0.0-beta.2) (2026-05-06)
+
+
+### Bug Fixes
+
+* add release back in semantics ([7fd102d](https://github.com/PurrNet/PurrNetEOSTransport/commit/7fd102d58913e1ad2817c2be1077bcfbed57c455))
+* Imported EOS PlayEverware ([132ba5a](https://github.com/PurrNet/PurrNetEOSTransport/commit/132ba5aa35d2a251ebfbe7533fcbedbcb92229fe))
+
 # 1.0.0-beta.1 (2026-05-06)
 
 
