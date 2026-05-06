@@ -6,13 +6,21 @@
 
 Easiest path: open **Tools / PurrNet / PurrNet Packages** and hit install on EOS Transport. One click and you're done.
 
-If you'd rather pull it in by hand, open Unity's Package Manager, click **Add package from git URL**, and paste:
+If you'd rather pull it in by hand, open Unity's Package Manager, click **Add package from git URL**, and paste one of these.
+
+Stable:
+
+```
+https://github.com/PurrNet/PurrNetEOSTransport.git?path=/Assets/EOSTransport#release
+```
+
+Latest in-development:
 
 ```
 https://github.com/PurrNet/PurrNetEOSTransport.git?path=/Assets/EOSTransport#dev
 ```
 
-You can also pin to a specific release tag with `#v1.0.0-beta.1` (or whatever the latest tag is) instead of `#dev`.
+You can also pin to a specific tag with `#v1.0.0` (or whatever the latest tag is) instead of a branch.
 
 You'll also need the [PlayEveryWare EOS Plugin](https://github.com/PlayEveryWare/eos_plugin_for_unity_upm). Same flow, Package Manager, **Add package from git URL**:
 
