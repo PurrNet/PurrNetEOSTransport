@@ -1,41 +1,41 @@
 # PurrNet EOS Transport
 
-An [Epic Online Services](https://dev.epicgames.com/en-US/services) P2P transport for [PurrNet](https://purrnet.dev/), built on top of the [PlayEveryWare EOS Unity Plugin](https://github.com/PlayEveryWare/eos_plugin_for_unity_upm).
-
-Use it when you want EOS-friend-list / lobby flows to drive your PurrNet connection without standing up a relay of your own.
+[Epic Online Services](https://dev.epicgames.com/en-US/services) P2P transport for [PurrNet](https://purrnet.dev/). Drop it on your `NetworkManager` and PurrNet rides on top of EOS — no relay to host, no extra glue.
 
 ## Install
 
-Add the package to your Unity project's `Packages/manifest.json`:
+Easiest path — open **Tools → PurrNet → PurrNet Packages** and hit install on EOS Transport. One click and you're done.
 
-```json
-"dev.purrnet.eostransport": "https://github.com/PurrNet/PurrNetEOSTransport.git?path=/Assets/EOSTransport#release"
+If you'd rather pull it in by hand, open Unity's Package Manager → **Add package from git URL** and paste:
+
+```
+https://github.com/PurrNet/PurrNetEOSTransport.git?path=/Assets/EOSTransport#release
 ```
 
-For the in-development branch, swap `#release` for `#dev`.
+Swap `#release` for `#dev` if you want the in-development branch.
 
-### Required dependencies
+You'll also need the [PlayEveryWare EOS Plugin](https://github.com/PlayEveryWare/eos_plugin_for_unity_upm). Same flow — Package Manager → **Add package from git URL**:
 
-| Package | Why |
-|---|---|
-| [PurrNet](https://github.com/PurrNet/PurrNet) | The networking layer this transport plugs into. |
-| [PlayEveryWare EOS Plugin](https://github.com/PlayEveryWare/eos_plugin_for_unity_upm) (`com.playeveryware.eos`) | Provides the EOS SDK + `EOSManager`. The transport is gated by a `versionDefine` on this package, so the runtime code only compiles when it's present. |
+```
+https://github.com/PlayEveryWare/eos_plugin_for_unity_upm.git
+```
 
-You'll also need an Epic dev account and product credentials configured via **Tools → EOS Plugin → EOS Configuration**.
+That gives you the EOS SDK and `EOSManager`. The transport's runtime code is gated by a `versionDefine` on `com.playeveryware.eos`, so it only compiles once the plugin is in.
+
+Then set up your Epic dev account and product credentials under **Tools → EOS Plugin → EOS Configuration**.
 
 ## Usage
 
 1. Add the `EOSTransport` component to your `NetworkManager`.
-2. Configure `socketName` (any string both peers agree on) and `remoteProductUserId` (the host's EOS Product User ID — set this on the client side before connecting).
-3. Server starts via `NetworkManager.StartServer()`; client connects via `NetworkManager.StartClient()`.
+2. Set `socketName` (any string, both peers just need to agree on it).
+3. On the client, set `remoteProductUserId` to the host's EOS Product User ID before connecting.
+4. `NetworkManager.StartServer()` to host, `NetworkManager.StartClient()` to join.
 
-Host loopback is handled automatically — calling `StartClient()` on the same `NetworkManager` after `StartServer()` short-circuits to in-process delivery instead of routing through EOS.
+If you call `StartClient()` on the same `NetworkManager` that's already hosting, it short-circuits to in-process delivery instead of going through EOS. Host loopback, no extra wiring.
 
 ## Attribution
 
-Originally derived from [`quentinleon/PurrNetEOSTransport`](https://github.com/quentinleon/PurrNetEOSTransport) (MIT, © 2025 Quentin Leon). This version is substantially rewritten — it adds an `EOSPeer` abstraction, fragmentation queue with `LimitExceeded` backpressure, host loopback, channel-to-reliability mapping, and notification-handle cleanup guards. Maintained under the PurrNet org.
-
-Both copyright lines are preserved in [`LICENSE`](./LICENSE).
+Forked from [`quentinleon/PurrNetEOSTransport`](https://github.com/quentinleon/PurrNetEOSTransport) (MIT, © 2025 Quentin Leon) and rewritten — `EOSPeer` abstraction, fragmentation queue with `LimitExceeded` backpressure, host loopback, channel-to-reliability mapping, and notification-handle cleanup. Both copyright lines live in [`LICENSE`](./LICENSE).
 
 ## License
 
