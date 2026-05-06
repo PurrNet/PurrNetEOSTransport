@@ -1,20 +1,20 @@
 # PurrNet EOS Transport
 
-[Epic Online Services](https://dev.epicgames.com/en-US/services) P2P transport for [PurrNet](https://purrnet.dev/). Drop it on your `NetworkManager` and PurrNet rides on top of EOS — no relay to host, no extra glue.
+[Epic Online Services](https://dev.epicgames.com/en-US/services) P2P transport for [PurrNet](https://purrnet.dev/). Drop it on your `NetworkManager` and PurrNet rides on top of EOS. No relay to host, no extra glue.
 
 ## Install
 
-Easiest path — open **Tools → PurrNet → PurrNet Packages** and hit install on EOS Transport. One click and you're done.
+Easiest path: open **Tools / PurrNet / PurrNet Packages** and hit install on EOS Transport. One click and you're done.
 
-If you'd rather pull it in by hand, open Unity's Package Manager → **Add package from git URL** and paste:
+If you'd rather pull it in by hand, open Unity's Package Manager, click **Add package from git URL**, and paste:
 
 ```
-https://github.com/PurrNet/PurrNetEOSTransport.git?path=/Assets/EOSTransport#release
+https://github.com/PurrNet/PurrNetEOSTransport.git?path=/Assets/EOSTransport#dev
 ```
 
-Swap `#release` for `#dev` if you want the in-development branch.
+You can also pin to a specific release tag with `#v1.0.0-beta.1` (or whatever the latest tag is) instead of `#dev`.
 
-You'll also need the [PlayEveryWare EOS Plugin](https://github.com/PlayEveryWare/eos_plugin_for_unity_upm). Same flow — Package Manager → **Add package from git URL**:
+You'll also need the [PlayEveryWare EOS Plugin](https://github.com/PlayEveryWare/eos_plugin_for_unity_upm). Same flow, Package Manager, **Add package from git URL**:
 
 ```
 https://github.com/PlayEveryWare/eos_plugin_for_unity_upm.git
@@ -22,7 +22,7 @@ https://github.com/PlayEveryWare/eos_plugin_for_unity_upm.git
 
 That gives you the EOS SDK and `EOSManager`. The transport's runtime code is gated by a `versionDefine` on `com.playeveryware.eos`, so it only compiles once the plugin is in.
 
-Then set up your Epic dev account and product credentials under **Tools → EOS Plugin → EOS Configuration**.
+Then set up your Epic dev account and product credentials under **Tools / EOS Plugin / EOS Configuration**.
 
 ## Usage
 
@@ -35,8 +35,8 @@ If you call `StartClient()` on the same `NetworkManager` that's already hosting,
 
 ## Attribution
 
-Forked from [`quentinleon/PurrNetEOSTransport`](https://github.com/quentinleon/PurrNetEOSTransport) (MIT, © 2025 Quentin Leon) and rewritten — `EOSPeer` abstraction, fragmentation queue with `LimitExceeded` backpressure, host loopback, channel-to-reliability mapping, and notification-handle cleanup. Both copyright lines live in [`LICENSE`](./LICENSE).
+Forked from [`quentinleon/PurrNetEOSTransport`](https://github.com/quentinleon/PurrNetEOSTransport) (MIT, © 2025 Quentin Leon) and rewritten with an `EOSPeer` abstraction, a fragmentation queue with `LimitExceeded` backpressure, host loopback, channel-to-reliability mapping, and notification-handle cleanup. Both copyright lines live in [`LICENSE`](./LICENSE).
 
 ## License
 
-MIT — see [`LICENSE`](./LICENSE).
+MIT. See [`LICENSE`](./LICENSE).
