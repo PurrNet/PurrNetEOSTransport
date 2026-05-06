@@ -1,0 +1,21 @@
+{
+  "name": "dev.purrnet.eostransport",
+  "version": "1.0.0",
+  "author": {
+    "name": "PurrNet Team",
+    "url": "https://purrnet.dev/"
+  },
+  "description": "Epic Online Services P2P transport for PurrNet. Routes traffic over EOS so games using the PlayEveryWare EOS plugin can host and connect without an external relay.",
+  "displayName": "PurrNet EOS Transport",
+  "documentationUrl": "https://purrnet.gitbook.io/docs/systems-and-modules/transports/eos-transport-community",
+  "hideInEditor": false,
+  "keywords": [
+    "purrnet",
+    "networking",
+    "multiplayer",
+    "transport",
+    "eos",
+    "epic online services",
+    "p2p"
+  ]
+}
