@@ -17,6 +17,41 @@ namespace PurrNet.EOSTransport
         [SerializeField] string _socketName = "PurrNetEOS";
         [SerializeField] string _remoteProductUserId;
 
+        [Header("Timeout")]
+        [SerializeField, Tooltip("Seconds without any received packet before the connection is considered timed out and dropped with DisconnectReason.Timeout.")]
+        [Min(0.5f)] float _connectionTimeout = 5f;
+
+        [SerializeField, Tooltip("Seconds between keep-alive packets sent to each peer. Should be well under Connection Timeout (e.g. 1/5).")]
+        [Min(0.1f)] float _heartbeatInterval = 1f;
+
+        [Header("Logging")]
+        [SerializeField, Tooltip("Minimum log level emitted by this transport. None silences all output; Info is the most verbose.")]
+        EOSLogLevel _logLevel = EOSLogLevel.Warning;
+
+        public EOSLogLevel logLevel
+        {
+            get => _logLevel;
+            set => _logLevel = value;
+        }
+
+        internal void LogInfo(string msg)
+        {
+            if (_logLevel >= EOSLogLevel.Info)
+                Debug.Log(msg);
+        }
+
+        internal void LogWarning(string msg)
+        {
+            if (_logLevel >= EOSLogLevel.Warning)
+                Debug.LogWarning(msg);
+        }
+
+        internal void LogError(string msg)
+        {
+            if (_logLevel >= EOSLogLevel.Error)
+                Debug.LogError(msg);
+        }
+
         public string socketName
         {
             get => _socketName;
@@ -27,6 +62,18 @@ namespace PurrNet.EOSTransport
         {
             get => _remoteProductUserId;
             set => _remoteProductUserId = value;
+        }
+
+        public float connectionTimeout
+        {
+            get => _connectionTimeout;
+            set => _connectionTimeout = value;
+        }
+
+        public float heartbeatInterval
+        {
+            get => _heartbeatInterval;
+            set => _heartbeatInterval = value;
         }
 
         public int GetMTU(Connection target, Channel channel, bool asServer)
@@ -165,10 +212,10 @@ namespace PurrNet.EOSTransport
             onConnected?.Invoke(new Connection(connectionId), true);
         }
 
-        void OnRemoteDisconnected(int connectionId)
+        void OnRemoteDisconnected(int connectionId, DisconnectReason reason)
         {
             _connections.Remove(new Connection(connectionId));
-            onDisconnected?.Invoke(new Connection(connectionId), DisconnectReason.ClientRequest, true);
+            onDisconnected?.Invoke(new Connection(connectionId), reason, true);
         }
 
         void OnServerData(int connectionId, ByteData data)
@@ -209,7 +256,7 @@ namespace PurrNet.EOSTransport
             onDataReceived?.Invoke(new Connection(-1), data, false);
         }
 
-        void OnClientStateChanged(ConnectionState state)
+        void OnClientStateChanged(ConnectionState state, DisconnectReason reason)
         {
             clientState = state;
 
@@ -217,7 +264,7 @@ namespace PurrNet.EOSTransport
                 onConnected?.Invoke(new Connection(0), false);
 
             if (state == ConnectionState.Disconnected)
-                onDisconnected?.Invoke(new Connection(0), DisconnectReason.ClientRequest, false);
+                onDisconnected?.Invoke(new Connection(0), reason, false);
         }
 
         public void Disconnect()
@@ -329,7 +376,7 @@ namespace PurrNet.EOSTransport
         }
 
 #if EOS_SDK
-        public static void ConfigurePacketQueue()
+        void ConfigurePacketQueue()
         {
             var p2p = EOSManager.Instance?.GetEOSPlatformInterface()?.GetP2PInterface();
             if (p2p == null) return;
@@ -342,8 +389,16 @@ namespace PurrNet.EOSTransport
 
             var result = p2p.SetPacketQueueSize(ref options);
             if (result != Result.Success)
-                Debug.LogWarning($"[EOSTransport] SetPacketQueueSize returned: {result}");
+                LogWarning($"[EOSTransport] SetPacketQueueSize returned: {result}");
         }
 #endif
+    }
+
+    public enum EOSLogLevel
+    {
+        None = 0,
+        Error = 1,
+        Warning = 2,
+        Info = 3,
     }
 }

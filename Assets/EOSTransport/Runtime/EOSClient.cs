@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using PurrNet.Transports;
 #if EOS_SDK
 using Epic.OnlineServices;
@@ -19,7 +20,7 @@ namespace PurrNet.EOSTransport
         float _lastCleanupTime;
 
         public event Action<ByteData> onDataReceived;
-        public event Action<ConnectionState> onConnectionState;
+        public event Action<ConnectionState, DisconnectReason> onConnectionState;
 
         static readonly byte[] HANDSHAKE = { 0 };
 
@@ -35,13 +36,15 @@ namespace PurrNet.EOSTransport
         ConnectionState State
         {
             get => _state;
-            set
-            {
-                if (_state == value)
-                    return;
-                _state = value;
-                onConnectionState?.Invoke(_state);
-            }
+            set => SetState(value, DisconnectReason.ClientRequest);
+        }
+
+        void SetState(ConnectionState newState, DisconnectReason reason)
+        {
+            if (_state == newState)
+                return;
+            _state = newState;
+            onConnectionState?.Invoke(_state, reason);
         }
 
         public ConnectionState connectionState => _state;
@@ -65,7 +68,7 @@ namespace PurrNet.EOSTransport
 
                 if (_p2p == null || _localUserId == null)
                 {
-                    UnityEngine.Debug.LogError("[EOSClient] P2P interface or local user not available");
+                    _transport.LogError("[EOSClient] P2P interface or local user not available");
                     State = ConnectionState.Disconnected;
                     return;
                 }
@@ -73,7 +76,7 @@ namespace PurrNet.EOSTransport
                 var remoteUserId = ProductUserId.FromString(remoteProductUserId);
                 if (remoteUserId == null)
                 {
-                    UnityEngine.Debug.LogError("[EOSClient] Invalid remote ProductUserId");
+                    _transport.LogError("[EOSClient] Invalid remote ProductUserId");
                     State = ConnectionState.Disconnected;
                     return;
                 }
@@ -90,7 +93,7 @@ namespace PurrNet.EOSTransport
                 var acceptResult = _p2p.AcceptConnection(ref acceptOptions);
                 if (acceptResult != Result.Success)
                 {
-                    UnityEngine.Debug.LogError($"[EOSClient] AcceptConnection failed: {acceptResult}");
+                    _transport.LogError($"[EOSClient] AcceptConnection failed: {acceptResult}");
                     State = ConnectionState.Disconnected;
                     return;
                 }
@@ -109,7 +112,7 @@ namespace PurrNet.EOSTransport
                 };
                 _notifyClosedHandle = _p2p.AddNotifyPeerConnectionClosed(ref closedOptions, null, OnConnectionClosed);
 
-                _serverPeer = new EOSPeer(_p2p, _localUserId, remoteUserId, _transport.socketName);
+                _serverPeer = new EOSPeer(_transport, _p2p, _localUserId, remoteUserId, _transport.socketName);
 
                 var sendOptions = new SendPacketOptions
                 {
@@ -125,17 +128,17 @@ namespace PurrNet.EOSTransport
                 var sendResult = _p2p.SendPacket(ref sendOptions);
                 if (sendResult != Result.Success)
                 {
-                    UnityEngine.Debug.LogError($"[EOSClient] Failed to send handshake: {sendResult}");
+                    _transport.LogError($"[EOSClient] Failed to send handshake: {sendResult}");
                     State = ConnectionState.Disconnected;
                 }
                 else
                 {
-                    UnityEngine.Debug.Log("[EOSClient] Handshake sent, waiting for connection...");
+                    _transport.LogInfo("[EOSClient] Handshake sent, waiting for connection...");
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[EOSClient] Failed to connect: {e}");
+                _transport.LogError($"[EOSClient] Failed to connect: {e}");
                 State = ConnectionState.Disconnected;
             }
 #endif
@@ -149,7 +152,7 @@ namespace PurrNet.EOSTransport
 
             if (!_serverPeer.Send(data, channel))
             {
-                UnityEngine.Debug.LogError("[EOSClient] Send failed, disconnecting");
+                _transport.LogError("[EOSClient] Send failed, disconnecting");
                 Stop();
             }
 #endif
@@ -178,48 +181,67 @@ namespace PurrNet.EOSTransport
                 if (_p2p.GetNextReceivedPacketSize(ref getSizeOptions, out var packetSize) != Result.Success)
                     break;
 
-                var buffer = new byte[packetSize];
-                var receiveOptions = new ReceivePacketOptions
+                int size = (int)packetSize;
+                var buffer = ArrayPool<byte>.Shared.Rent(size);
+                try
                 {
-                    LocalUserId = _localUserId,
-                    MaxDataSizeBytes = packetSize
-                };
-
-                ProductUserId remoteUserId = null;
-                var socketId = new SocketId();
-                byte eosChannel = 0;
-
-                var result = _p2p.ReceivePacket(
-                    ref receiveOptions,
-                    ref remoteUserId,
-                    ref socketId,
-                    out eosChannel,
-                    new ArraySegment<byte>(buffer),
-                    out var bytesWritten);
-
-                if (result != Result.Success)
-                    break;
-
-                if (socketId.SocketName != _transport.socketName)
-                    continue;
-
-                if (remoteUserId.ToString() != _remoteProductUserId)
-                    continue;
-
-                if (_serverPeer == null)
-                    continue;
-
-                var rawData = new ByteData(buffer, 0, (int)bytesWritten);
-
-                if (_serverPeer.fragLayer.Receive(rawData, out var assembled))
-                {
-                    if (_state == ConnectionState.Connecting)
+                    var receiveOptions = new ReceivePacketOptions
                     {
-                        UnityEngine.Debug.Log("[EOSClient] Connection established with server (first data)");
-                        State = ConnectionState.Connected;
+                        LocalUserId = _localUserId,
+                        MaxDataSizeBytes = packetSize
+                    };
+
+                    ProductUserId remoteUserId = null;
+                    var socketId = new SocketId();
+
+                    var result = _p2p.ReceivePacket(
+                        ref receiveOptions,
+                        ref remoteUserId,
+                        ref socketId,
+                        out _,
+                        new ArraySegment<byte>(buffer, 0, size),
+                        out var bytesWritten);
+
+                    if (result != Result.Success)
+                        break;
+
+                    if (socketId.SocketName != _transport.socketName)
+                        continue;
+
+                    if (remoteUserId.ToString() != _remoteProductUserId)
+                        continue;
+
+                    if (_serverPeer == null)
+                        continue;
+
+                    var rawData = new ByteData(buffer, 0, (int)bytesWritten);
+
+                    _serverPeer.lastReceivedTime = UnityEngine.Time.unscaledTime;
+
+                    if (EOSPeer.IsHeartbeat(rawData))
+                    {
+                        if (_state == ConnectionState.Connecting)
+                        {
+                            _transport.LogInfo("[EOSClient] Connection established with server (heartbeat)");
+                            State = ConnectionState.Connected;
+                        }
+                        continue;
                     }
 
-                    onDataReceived?.Invoke(assembled);
+                    if (_serverPeer.fragLayer.Receive(rawData, out var assembled))
+                    {
+                        if (_state == ConnectionState.Connecting)
+                        {
+                            _transport.LogInfo("[EOSClient] Connection established with server (first data)");
+                            State = ConnectionState.Connected;
+                        }
+
+                        onDataReceived?.Invoke(assembled);
+                    }
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
                 }
             }
 #endif
@@ -231,9 +253,27 @@ namespace PurrNet.EOSTransport
             if (_serverPeer == null)
                 return;
 
+            float now = UnityEngine.Time.unscaledTime;
+
+            if (_state == ConnectionState.Connecting || _state == ConnectionState.Connected)
+            {
+                if (now - _serverPeer.lastReceivedTime > _transport.connectionTimeout)
+                {
+                    _transport.LogWarning($"[EOSClient] Connection timed out (no packet for >{_transport.connectionTimeout}s)");
+                    StopWithReason(DisconnectReason.Timeout);
+                    return;
+                }
+
+                if (_state == ConnectionState.Connected &&
+                    now - _serverPeer.lastHeartbeatSentTime >= _transport.heartbeatInterval)
+                {
+                    _serverPeer.SendHeartbeat();
+                    _serverPeer.lastHeartbeatSentTime = now;
+                }
+            }
+
             _serverPeer.FlushQueue();
 
-            float now = UnityEngine.Time.unscaledTime;
             if (now - _lastCleanupTime > 5f)
             {
                 _lastCleanupTime = now;
@@ -244,11 +284,16 @@ namespace PurrNet.EOSTransport
 
         public void Stop()
         {
+            StopWithReason(DisconnectReason.ClientRequest);
+        }
+
+        public void StopWithReason(DisconnectReason reason)
+        {
 #if EOS_SDK
             if (_state == ConnectionState.Disconnected)
                 return;
 
-            State = ConnectionState.Disconnecting;
+            SetState(ConnectionState.Disconnecting, reason);
 
             var platform = EOSManager.Instance?.GetEOSPlatformInterface();
             var p2p = platform?.GetP2PInterface();
@@ -274,7 +319,7 @@ namespace PurrNet.EOSTransport
             _serverPeer?.Dispose();
             _serverPeer = null;
 
-            State = ConnectionState.Disconnected;
+            SetState(ConnectionState.Disconnected, reason);
 #endif
         }
 
@@ -286,7 +331,7 @@ namespace PurrNet.EOSTransport
 
             if (_state == ConnectionState.Connecting)
             {
-                UnityEngine.Debug.Log("[EOSClient] Connection established with server (EOS notification)");
+                _transport.LogInfo("[EOSClient] Connection established with server (EOS notification)");
                 State = ConnectionState.Connected;
             }
         }
@@ -296,7 +341,7 @@ namespace PurrNet.EOSTransport
             if (info.RemoteUserId.ToString() != _remoteProductUserId)
                 return;
 
-            UnityEngine.Debug.Log($"[EOSClient] Connection closed (reason={info.Reason})");
+            _transport.LogInfo($"[EOSClient] Connection closed (reason={info.Reason})");
 
             _serverPeer?.Dispose();
             _serverPeer = null;
@@ -319,7 +364,7 @@ namespace PurrNet.EOSTransport
             if (_notifyEstablishedHandle == Common.INVALID_NOTIFICATIONID)
                 return;
             try { p2p.RemoveNotifyPeerConnectionEstablished(_notifyEstablishedHandle); }
-            catch (Exception e) { UnityEngine.Debug.LogWarning($"[EOSClient] RemoveNotifyPeerConnectionEstablished failed: {e.Message}"); }
+            catch (Exception e) { _transport.LogWarning($"[EOSClient] RemoveNotifyPeerConnectionEstablished failed: {e.Message}"); }
             _notifyEstablishedHandle = Common.INVALID_NOTIFICATIONID;
         }
 
@@ -328,7 +373,7 @@ namespace PurrNet.EOSTransport
             if (_notifyClosedHandle == Common.INVALID_NOTIFICATIONID)
                 return;
             try { p2p.RemoveNotifyPeerConnectionClosed(_notifyClosedHandle); }
-            catch (Exception e) { UnityEngine.Debug.LogWarning($"[EOSClient] RemoveNotifyPeerConnectionClosed failed: {e.Message}"); }
+            catch (Exception e) { _transport.LogWarning($"[EOSClient] RemoveNotifyPeerConnectionClosed failed: {e.Message}"); }
             _notifyClosedHandle = Common.INVALID_NOTIFICATIONID;
         }
 #endif
