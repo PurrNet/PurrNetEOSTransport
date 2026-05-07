@@ -1,3 +1,10 @@
+# [1.0.0-beta.3](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.0-beta.2...v1.0.0-beta.3) (2026-05-07)
+
+
+### Features
+
+* timeout settings, log level and GC patches ([cfc895d](https://github.com/PurrNet/PurrNetEOSTransport/commit/cfc895dbc9b10c8259906f4f796eb7bd4c03a788))
+
 # 1.0.0 (2026-05-06)
 
 
