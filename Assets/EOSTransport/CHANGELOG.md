@@ -1,3 +1,10 @@
+# [1.0.0-beta.4](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.0-beta.3...v1.0.0-beta.4) (2026-05-07)
+
+
+### Bug Fixes
+
+* releases are going wild ([1c023ea](https://github.com/PurrNet/PurrNetEOSTransport/commit/1c023eaed2297aca9e65a02c3552ddd89e98ba50))
+
 # 1.0.0 (2026-05-07)
 
 
