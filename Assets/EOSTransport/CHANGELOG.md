@@ -1,3 +1,10 @@
+## [1.0.1-beta.1](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.0...v1.0.1-beta.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* ensure the sent is a success before marking the last send time ([94184ba](https://github.com/PurrNet/PurrNetEOSTransport/commit/94184ba343c179c6a1305c76b2ec35656e489d06))
+
 # [1.0.0-beta.5](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.0-beta.4...v1.0.0-beta.5) (2026-05-07)
 
 
