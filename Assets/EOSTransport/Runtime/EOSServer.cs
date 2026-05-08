@@ -248,8 +248,8 @@ namespace PurrNet.EOSTransport
 
                 if (now - peer.lastHeartbeatSentTime >= interval)
                 {
-                    peer.SendHeartbeat();
-                    peer.lastHeartbeatSentTime = now;
+                    if (peer.SendHeartbeat() == Result.Success)
+                        peer.lastHeartbeatSentTime = now;
                 }
 
                 peer.FlushQueue();

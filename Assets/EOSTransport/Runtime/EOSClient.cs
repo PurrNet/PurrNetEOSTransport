@@ -267,8 +267,8 @@ namespace PurrNet.EOSTransport
                 if (_state == ConnectionState.Connected &&
                     now - _serverPeer.lastHeartbeatSentTime >= _transport.heartbeatInterval)
                 {
-                    _serverPeer.SendHeartbeat();
-                    _serverPeer.lastHeartbeatSentTime = now;
+                    if (_serverPeer.SendHeartbeat() == Result.Success)
+                        _serverPeer.lastHeartbeatSentTime = now;
                 }
             }
 
