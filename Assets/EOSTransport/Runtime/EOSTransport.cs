@@ -19,7 +19,7 @@ namespace PurrNet.EOSTransport
 
         [Header("Timeout")]
         [SerializeField, Tooltip("Seconds without any received packet before the connection is considered timed out and dropped with DisconnectReason.Timeout.")]
-        [Min(0.5f)] float _connectionTimeout = 5f;
+        [Min(0.5f)] float _connectionTimeout = 10f;
 
         [SerializeField, Tooltip("Seconds between keep-alive packets sent to each peer. Should be well under Connection Timeout (e.g. 1/5).")]
         [Min(0.1f)] float _heartbeatInterval = 1f;
