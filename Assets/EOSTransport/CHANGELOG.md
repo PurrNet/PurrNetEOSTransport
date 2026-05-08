@@ -1,3 +1,10 @@
+## [1.0.1-beta.2](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.1...v1.0.1-beta.2) (2026-05-08)
+
+
+### Bug Fixes
+
+* increase default timeout window to 10s ([3431d2e](https://github.com/PurrNet/PurrNetEOSTransport/commit/3431d2e8854205565163b3ace7fcf71f6961e48e))
+
 ## [1.0.1-beta.1](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.0...v1.0.1-beta.1) (2026-05-08)
 
 
