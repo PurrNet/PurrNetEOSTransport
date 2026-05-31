@@ -214,8 +214,11 @@ namespace PurrNet.EOSTransport
 
         void OnRemoteDisconnected(int connectionId, DisconnectReason reason)
         {
-            _connections.Remove(new Connection(connectionId));
-            onDisconnected?.Invoke(new Connection(connectionId), reason, true);
+            var connection = new Connection(connectionId);
+            if (!_connections.Remove(connection))
+                return;
+
+            onDisconnected?.Invoke(connection, reason, true);
         }
 
         void OnServerData(int connectionId, ByteData data)
