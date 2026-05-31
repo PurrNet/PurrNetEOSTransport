@@ -1,3 +1,10 @@
+## [1.0.1-beta.3](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.2...v1.0.1-beta.3) (2026-05-31)
+
+
+### Bug Fixes
+
+* Stop notifying disconnect if connection doesn't exist ([cd6bd79](https://github.com/PurrNet/PurrNetEOSTransport/commit/cd6bd794c304d2d6b92607f0e4b4907bf28c0eb7))
+
 ## [1.0.1-beta.2](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.1...v1.0.1-beta.2) (2026-05-08)
 
 
