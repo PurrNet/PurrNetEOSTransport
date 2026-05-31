@@ -1,3 +1,10 @@
+## [1.0.1-beta.4](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.3...v1.0.1-beta.4) (2026-05-31)
+
+
+### Bug Fixes
+
+* Safety for none connected clients sending data ([c999206](https://github.com/PurrNet/PurrNetEOSTransport/commit/c9992067fd2eca308e1cc2f535ec151610a0b642))
+
 ## [1.0.1-beta.3](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.2...v1.0.1-beta.3) (2026-05-31)
 
 
