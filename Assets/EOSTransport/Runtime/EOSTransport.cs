@@ -328,6 +328,9 @@ namespace PurrNet.EOSTransport
 
         public void SendToServer(ByteData data, Channel method = Channel.ReliableOrdered)
         {
+            if (clientState is not ConnectionState.Connected)
+                return;
+
             if (_isHostLoopback)
             {
                 var copy = new byte[data.length];
@@ -342,6 +345,9 @@ namespace PurrNet.EOSTransport
                 RaiseDataSent(default, data, false);
                 return;
             }
+
+            if (_client == null)
+                return;
 
             _client.Send(data, method);
             RaiseDataSent(default, data, false);
