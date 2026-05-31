@@ -1,3 +1,10 @@
+## [1.0.1-beta.5](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.4...v1.0.1-beta.5) (2026-05-31)
+
+
+### Bug Fixes
+
+* Safety for duplicate connection callbacks ([ff46ae2](https://github.com/PurrNet/PurrNetEOSTransport/commit/ff46ae22bb88f92e766e18eef98d977295a98c52))
+
 ## [1.0.1-beta.4](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.3...v1.0.1-beta.4) (2026-05-31)
 
 
