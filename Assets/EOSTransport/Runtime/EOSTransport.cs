@@ -168,10 +168,17 @@ namespace PurrNet.EOSTransport
 
         void StartHostLoopback()
         {
+            if (_isHostLoopback)
+                return;
+
             _isHostLoopback = true;
 
-            _connections.Add(new Connection(LOOPBACK_CONNECTION_ID));
-            onConnected?.Invoke(new Connection(LOOPBACK_CONNECTION_ID), true);
+            var connection = new Connection(LOOPBACK_CONNECTION_ID);
+            if (!_connections.Contains(connection))
+            {
+                _connections.Add(connection);
+                onConnected?.Invoke(connection, true);
+            }
 
             clientState = ConnectionState.Connected;
             onConnected?.Invoke(new Connection(0), false);
@@ -190,6 +197,9 @@ namespace PurrNet.EOSTransport
 
             _server = new EOSServer();
             _server.Initialize(this);
+            _server.onDataReceived += OnServerData;
+            _server.onRemoteConnected += OnRemoteConnected;
+            _server.onRemoteDisconnected += OnRemoteDisconnected;
 
             if (_server.Listen())
             {
@@ -197,19 +207,24 @@ namespace PurrNet.EOSTransport
             }
             else
             {
+                _server.onDataReceived -= OnServerData;
+                _server.onRemoteConnected -= OnRemoteConnected;
+                _server.onRemoteDisconnected -= OnRemoteDisconnected;
+                _server = null;
+                _connections.Clear();
                 listenerState = ConnectionState.Disconnecting;
                 listenerState = ConnectionState.Disconnected;
             }
-
-            _server.onDataReceived += OnServerData;
-            _server.onRemoteConnected += OnRemoteConnected;
-            _server.onRemoteDisconnected += OnRemoteDisconnected;
         }
 
         void OnRemoteConnected(int connectionId)
         {
-            _connections.Add(new Connection(connectionId));
-            onConnected?.Invoke(new Connection(connectionId), true);
+            var connection = new Connection(connectionId);
+            if (_connections.Contains(connection))
+                return;
+
+            _connections.Add(connection);
+            onConnected?.Invoke(connection, true);
         }
 
         void OnRemoteDisconnected(int connectionId, DisconnectReason reason)
@@ -232,6 +247,14 @@ namespace PurrNet.EOSTransport
                 listenerState = ConnectionState.Disconnecting;
 
             _server?.Stop();
+            if (_server != null)
+            {
+                _server.onDataReceived -= OnServerData;
+                _server.onRemoteConnected -= OnRemoteConnected;
+                _server.onRemoteDisconnected -= OnRemoteDisconnected;
+            }
+
+            _connections.Clear();
             listenerState = ConnectionState.Disconnected;
             _server = null;
             _isHostLoopback = false;
