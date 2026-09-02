@@ -419,6 +419,12 @@ namespace PurrNet.EOSTransport
             _client?.SendMessages();
         }
 
+        public void UnityUpdate(float delta)
+        {
+            _server?.ReceiveMessages();
+            _client?.ReceiveMessages();
+        }
+
 #if EOS_SDK
         void ConfigurePacketQueue()
         {

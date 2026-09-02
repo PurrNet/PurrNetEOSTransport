@@ -29,6 +29,7 @@ namespace PurrNet.EOSTransport
 
         public float lastReceivedTime;
         public float lastHeartbeatSentTime;
+        public float lastPingSentTime;
         public int roundTripTime = -1;
 
         readonly byte[] _pingBuffer = new byte[5];

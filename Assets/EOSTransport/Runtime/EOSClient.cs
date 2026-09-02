@@ -23,6 +23,7 @@ namespace PurrNet.EOSTransport
         public event Action<ConnectionState, DisconnectReason> onConnectionState;
 
         static readonly byte[] HANDSHAKE = { 0 };
+        const float PROBE_PING_INTERVAL = 0.1f;
 
 #if EOS_SDK
         P2PInterface _p2p;
@@ -279,10 +280,15 @@ namespace PurrNet.EOSTransport
                     now - _serverPeer.lastHeartbeatSentTime >= _transport.heartbeatInterval)
                 {
                     if (_serverPeer.SendHeartbeat() == Result.Success)
-                    {
                         _serverPeer.lastHeartbeatSentTime = now;
-                        _serverPeer.SendPing();
-                    }
+                }
+
+                float pingInterval = _transport.isPinging ? PROBE_PING_INTERVAL : _transport.heartbeatInterval;
+
+                if (_state == ConnectionState.Connected && now - _serverPeer.lastPingSentTime >= pingInterval)
+                {
+                    if (_serverPeer.SendPing() == Result.Success)
+                        _serverPeer.lastPingSentTime = now;
                 }
             }
 
