@@ -1,3 +1,10 @@
+## [1.0.1-beta.7](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.6...v1.0.1-beta.7) (2026-09-02)
+
+
+### Bug Fixes
+
+* Improved pinging to make up for path delay ([4e86a45](https://github.com/PurrNet/PurrNetEOSTransport/commit/4e86a4508e056d4fb5f5584e35342169d235e564))
+
 ## [1.0.1-beta.6](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.5...v1.0.1-beta.6) (2026-09-02)
 
 
