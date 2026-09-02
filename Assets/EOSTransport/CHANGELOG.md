@@ -1,3 +1,10 @@
+## [1.0.1-beta.6](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.5...v1.0.1-beta.6) (2026-09-02)
+
+
+### Bug Fixes
+
+* Support pre-connection pinging ([c377b46](https://github.com/PurrNet/PurrNetEOSTransport/commit/c377b46e3d1c2cc19b5062d24132a63a8a68f0b2))
+
 ## [1.0.1-beta.5](https://github.com/PurrNet/PurrNetEOSTransport/compare/v1.0.1-beta.4...v1.0.1-beta.5) (2026-05-31)
 
 
