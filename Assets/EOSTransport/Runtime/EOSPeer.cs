@@ -12,6 +12,16 @@ namespace PurrNet.EOSTransport
     {
         public const int EOS_MAX_PACKET = 1170;
         public const byte HEARTBEAT_BYTE = 1;
+        public const byte PING_BYTE = 2;
+        public const byte PONG_BYTE = 3;
+        public const byte CONTROL_CHANNEL = 255;
+
+        // Backpressure ceiling for the managed overflow queues. When EOS reports
+        // LimitExceeded we buffer sends, but a peer that stays this far behind is
+        // unrecoverable — unbounded buffering turns into a GC death spiral on the
+        // sender (observed in the wild: ~35k queued buffers / ~1.8 GB at 1 fps).
+        // Past the cap, Send reports failure so the owner disconnects the peer.
+        public const long MAX_QUEUED_BYTES = 32L * 1024 * 1024;
 
         static readonly byte[] HEARTBEAT_PAYLOAD = { HEARTBEAT_BYTE };
 
@@ -19,6 +29,10 @@ namespace PurrNet.EOSTransport
 
         public float lastReceivedTime;
         public float lastHeartbeatSentTime;
+        public int roundTripTime = -1;
+
+        readonly byte[] _pingBuffer = new byte[5];
+        readonly byte[] _pongBuffer = new byte[5];
 
         readonly Queue<QueuedFragment> _fragmentQueue = new();
         readonly Queue<QueuedMessage> _pendingMessages = new();
@@ -26,6 +40,8 @@ namespace PurrNet.EOSTransport
         bool _queueing;
         Channel _currentChannel;
         bool _sendFailed;
+        long _queuedBytes;
+        bool _overflowReported;
 
         struct QueuedFragment
         {
@@ -66,6 +82,85 @@ namespace PurrNet.EOSTransport
             return data.length == 1 && data.data[data.offset] == HEARTBEAT_BYTE;
         }
 
+        // EOS defaults its native P2P queues to 64 KB per direction — a single reliable
+        // message bigger than that (e.g. a join-time state snapshot) instantly hits
+        // LimitExceeded and pushes buffering into the managed overflow queues. Larger
+        // native queues let EOS spool bursts itself.
+        public static void ConfigurePacketQueueSize(P2PInterface p2p, EOSTransport transport)
+        {
+            var options = new SetPacketQueueSizeOptions
+            {
+                IncomingPacketQueueMaxSizeBytes = 4UL * 1024 * 1024,
+                OutgoingPacketQueueMaxSizeBytes = 2UL * 1024 * 1024
+            };
+            var result = p2p.SetPacketQueueSize(ref options);
+            if (result != Result.Success)
+                transport.LogWarning($"[EOSPeer] SetPacketQueueSize failed: {result}");
+        }
+
+        public Result SendPing()
+        {
+            uint now = (uint)(UnityEngine.Time.unscaledTimeAsDouble * 1000);
+            _pingBuffer[0] = PING_BYTE;
+            WriteUInt(_pingBuffer, 1, now);
+            return SendControl(_pingBuffer);
+        }
+
+        public bool HandleControl(byte channel, ByteData data)
+        {
+            if (channel != CONTROL_CHANNEL)
+                return false;
+
+            if (data.length != 5)
+                return true;
+
+            switch (data.data[data.offset])
+            {
+                case PING_BYTE:
+                    _pongBuffer[0] = PONG_BYTE;
+                    Buffer.BlockCopy(data.data, data.offset + 1, _pongBuffer, 1, 4);
+                    SendControl(_pongBuffer);
+                    break;
+                case PONG_BYTE:
+                    uint now = (uint)(UnityEngine.Time.unscaledTimeAsDouble * 1000);
+                    roundTripTime = (int)(now - ReadUInt(data.data, data.offset + 1));
+                    break;
+            }
+
+            return true;
+        }
+
+        Result SendControl(byte[] payload)
+        {
+            var options = new SendPacketOptions
+            {
+                LocalUserId = _localUserId,
+                RemoteUserId = _remoteUserId,
+                SocketId = _socketId,
+                Channel = CONTROL_CHANNEL,
+                Data = new ArraySegment<byte>(payload),
+                AllowDelayedDelivery = true,
+                Reliability = PacketReliability.UnreliableUnordered
+            };
+            return _p2p.SendPacket(ref options);
+        }
+
+        static void WriteUInt(byte[] buffer, int offset, uint value)
+        {
+            buffer[offset] = (byte)value;
+            buffer[offset + 1] = (byte)(value >> 8);
+            buffer[offset + 2] = (byte)(value >> 16);
+            buffer[offset + 3] = (byte)(value >> 24);
+        }
+
+        static uint ReadUInt(byte[] buffer, int offset)
+        {
+            return buffer[offset]
+                   | (uint)buffer[offset + 1] << 8
+                   | (uint)buffer[offset + 2] << 16
+                   | (uint)buffer[offset + 3] << 24;
+        }
+
         public Result SendHeartbeat()
         {
             var options = new SendPacketOptions
@@ -87,6 +182,9 @@ namespace PurrNet.EOSTransport
 
             if (_queueing)
             {
+                if (IsOverflowing(data.length))
+                    return false;
+
                 var copy = new byte[data.length];
                 Buffer.BlockCopy(data.data, data.offset, copy, 0, data.length);
                 _pendingMessages.Enqueue(new QueuedMessage
@@ -95,12 +193,28 @@ namespace PurrNet.EOSTransport
                     length = data.length,
                     channel = channel
                 });
+                _queuedBytes += data.length;
                 return true;
             }
 
             _currentChannel = channel;
             fragLayer.Send(data, EOS_MAX_PACKET, _sendDelegate);
             return !_sendFailed;
+        }
+
+        bool IsOverflowing(int incomingLength)
+        {
+            if (_queuedBytes + incomingLength <= MAX_QUEUED_BYTES)
+                return false;
+
+            if (!_overflowReported)
+            {
+                _overflowReported = true;
+                _transport.LogError(
+                    $"[EOSPeer] Send backlog exceeded {MAX_QUEUED_BYTES / (1024 * 1024)} MB " +
+                    $"({_queuedBytes / (1024 * 1024)} MB queued) — peer cannot keep up, disconnecting.");
+            }
+            return true;
         }
 
         void OnSendFragment(ByteData fragment)
@@ -127,6 +241,12 @@ namespace PurrNet.EOSTransport
 
         void EnqueueFragment(ByteData fragment, Channel channel)
         {
+            if (IsOverflowing(fragment.length))
+            {
+                _sendFailed = true;
+                return;
+            }
+
             var copy = new byte[fragment.length];
             Buffer.BlockCopy(fragment.data, fragment.offset, copy, 0, fragment.length);
             _fragmentQueue.Enqueue(new QueuedFragment
@@ -135,6 +255,7 @@ namespace PurrNet.EOSTransport
                 length = fragment.length,
                 channel = channel
             });
+            _queuedBytes += fragment.length;
         }
 
         Result SendRawEOS(ByteData data, Channel channel)
@@ -180,6 +301,7 @@ namespace PurrNet.EOSTransport
                     return;
 
                 _fragmentQueue.Dequeue();
+                _queuedBytes -= frag.length;
 
                 if (result != Result.Success)
                     _transport.LogError($"[EOSPeer] Queued fragment send failed: {result}");
@@ -194,6 +316,7 @@ namespace PurrNet.EOSTransport
 
                 fragLayer.Send(new ByteData(msg.data, 0, msg.length), EOS_MAX_PACKET, _sendDelegate);
                 _pendingMessages.Dequeue();
+                _queuedBytes -= msg.length;
 
                 if (_queueing)
                     return;
@@ -226,6 +349,8 @@ namespace PurrNet.EOSTransport
             _fragmentQueue.Clear();
             _pendingMessages.Clear();
             _queueing = false;
+            _queuedBytes = 0;
+            _overflowReported = false;
         }
     }
 }

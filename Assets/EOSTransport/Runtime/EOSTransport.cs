@@ -96,6 +96,18 @@ namespace PurrNet.EOSTransport
 
         public override ITransport transport => this;
 
+        public bool measuresRoundTripTime => true;
+
+        public int GetRoundTripTime(Connection conn, bool asServer)
+        {
+            if (_isHostLoopback && (!asServer || conn.connectionId == LOOPBACK_CONNECTION_ID))
+                return 0;
+
+            if (asServer)
+                return _server?.GetRoundTripTime(conn.connectionId) ?? -1;
+            return _client?.roundTripTime ?? -1;
+        }
+
         readonly List<Connection> _connections = new();
 
         struct LoopbackPacket

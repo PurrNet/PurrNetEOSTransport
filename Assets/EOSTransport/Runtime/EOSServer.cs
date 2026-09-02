@@ -46,6 +46,13 @@ namespace PurrNet.EOSTransport
             _transport = transport;
         }
 
+        public int GetRoundTripTime(int connectionId)
+        {
+            if (!_connectionToUserId.TryGetValue(connectionId, out var userId))
+                return -1;
+            return _peers.TryGetValue(userId, out var peer) ? peer.roundTripTime : -1;
+        }
+
         public bool Listen()
         {
 #if EOS_SDK
@@ -60,6 +67,8 @@ namespace PurrNet.EOSTransport
                     _transport.LogError("[EOSServer] P2P interface or local user not available");
                     return false;
                 }
+
+                EOSPeer.ConfigurePacketQueueSize(_p2p, _transport);
 
                 _socketId = new SocketId { SocketName = _transport.socketName };
 
@@ -185,7 +194,7 @@ namespace PurrNet.EOSTransport
                         ref receiveOptions,
                         ref remoteUserId,
                         ref socketId,
-                        out _,
+                        out var packetChannel,
                         new ArraySegment<byte>(buffer, 0, size),
                         out var bytesWritten);
 
@@ -205,6 +214,9 @@ namespace PurrNet.EOSTransport
                         continue;
 
                     peer.lastReceivedTime = UnityEngine.Time.unscaledTime;
+
+                    if (peer.HandleControl(packetChannel, rawData))
+                        continue;
 
                     if (IsHandshake(rawData))
                         continue;
@@ -249,7 +261,10 @@ namespace PurrNet.EOSTransport
                 if (now - peer.lastHeartbeatSentTime >= interval)
                 {
                     if (peer.SendHeartbeat() == Result.Success)
+                    {
                         peer.lastHeartbeatSentTime = now;
+                        peer.SendPing();
+                    }
                 }
 
                 peer.FlushQueue();

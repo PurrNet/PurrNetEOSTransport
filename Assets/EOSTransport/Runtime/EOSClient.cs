@@ -49,6 +49,8 @@ namespace PurrNet.EOSTransport
 
         public ConnectionState connectionState => _state;
 
+        public int roundTripTime => _serverPeer?.roundTripTime ?? -1;
+
         public void Initialize(EOSTransport transport)
         {
             _transport = transport;
@@ -80,6 +82,8 @@ namespace PurrNet.EOSTransport
                     State = ConnectionState.Disconnected;
                     return;
                 }
+
+                EOSPeer.ConfigurePacketQueueSize(_p2p, _transport);
 
                 _socketId = new SocketId { SocketName = _transport.socketName };
 
@@ -198,7 +202,7 @@ namespace PurrNet.EOSTransport
                         ref receiveOptions,
                         ref remoteUserId,
                         ref socketId,
-                        out _,
+                        out var packetChannel,
                         new ArraySegment<byte>(buffer, 0, size),
                         out var bytesWritten);
 
@@ -217,6 +221,13 @@ namespace PurrNet.EOSTransport
                     var rawData = new ByteData(buffer, 0, (int)bytesWritten);
 
                     _serverPeer.lastReceivedTime = UnityEngine.Time.unscaledTime;
+
+                    if (_serverPeer.HandleControl(packetChannel, rawData))
+                    {
+                        if (_state == ConnectionState.Connecting)
+                            State = ConnectionState.Connected;
+                        continue;
+                    }
 
                     if (EOSPeer.IsHeartbeat(rawData))
                     {
@@ -268,7 +279,10 @@ namespace PurrNet.EOSTransport
                     now - _serverPeer.lastHeartbeatSentTime >= _transport.heartbeatInterval)
                 {
                     if (_serverPeer.SendHeartbeat() == Result.Success)
+                    {
                         _serverPeer.lastHeartbeatSentTime = now;
+                        _serverPeer.SendPing();
+                    }
                 }
             }
 
